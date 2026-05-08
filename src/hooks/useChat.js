@@ -130,9 +130,66 @@ export function useChat() {
     }
     setLoading(false)
   }
+// FUNGSI BARU UNTUK DOWNLOADER
+  async function handleDownload() {
+    if (!input.trim() || loading) return
 
+    // Cek apakah input mengandung "http" (berupa link)
+    if (!input.includes('http')) {
+      alert("Harap masukkan URL/Link yang valid!")
+      return
+    }
+
+    const urlToDownload = input
+    
+    // Munculkan pesan user ke layar
+    setMessages((prev) => [...prev, { role: 'user', content: `Tolong download video ini:\n${urlToDownload}` }])
+    setInput('')
+    setLoading(true)
+    addLog('REQUEST', `Mencoba mengekstrak media dari URL...`)
+
+    // Munculkan balon chat loading untuk asisten
+    setMessages((prev) => [...prev, { role: 'assistant', content: '⏳ *Sedang mengambil link tanpa watermark...*' }])
+
+    try {
+      const res = await fetch('/api/downloader', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToDownload }),
+      })
+
+      const data = await res.json()
+
+      // Ubah balon chat loading menjadi hasil akhir
+      setMessages((prev) => {
+        const updated = [...prev]
+        const last = updated.length - 1
+
+        if (data.success) {
+          // Format menggunakan Markdown agar rapi
+          updated[last].content = `✅ **Berhasil menemukan video!**\n\n**Judul:** ${data.title}\n\n[🚀 KLIK DI SINI UNTUK DOWNLOAD/NONTON (No WM)](${data.downloadLink})`
+          addLog('SUCCESS', `Link ${data.platform} berhasil didapat.`)
+        } else {
+          updated[last].content = `❌ **Gagal:** ${data.error || 'Link tidak dapat diproses.'}`
+          addLog('ERROR', data.error || 'Gagal ekstrak link')
+        }
+        return updated
+      })
+    } catch (error) {
+      setMessages((prev) => {
+        const updated = [...prev]
+        updated[updated.length - 1].content = `❌ **Error:** Terjadi kesalahan jaringan.`
+        return updated
+      })
+      addLog('ERROR', error.message)
+    }
+
+    setLoading(false)
+  }
+
+  // JANGAN LUPA export fungsinya di bagian bawah (return)
   return {
     messages, input, setInput, loading, currentRole, setCurrentRole,
-    logs, addLog, clearChat, stopGenerating, sendMessage
+    logs, addLog, clearChat, stopGenerating, sendMessage, handleDownload // <--- Tambahkan ini
   }
 }

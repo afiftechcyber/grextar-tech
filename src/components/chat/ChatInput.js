@@ -1,7 +1,7 @@
 // src/components/chat/ChatInput.jsx
 import { FiSend, FiSquare, FiMic, FiDownload } from 'react-icons/fi'
 
-export default function ChatInput({ input, setInput, sendMessage, stopGenerating, loading }) {
+export default function ChatInput({ input, setInput, sendMessage, stopGenerating,handleDownload, loading }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -21,7 +21,15 @@ export default function ChatInput({ input, setInput, sendMessage, stopGenerating
         
         {/* Placeholder Fitur Tambahan */}
         <button className="tool-btn" style={{ background: 'transparent', border: '1px solid var(--accent-2)', color: 'var(--accent-2)', width: '50px', borderRadius: '4px' }} title="Gunakan Suara" disabled={loading}><FiMic /></button>
-        <button className="tool-btn" style={{ background: 'transparent', border: '1px solid var(--accent-2)', color: 'var(--accent-2)', width: '50px', borderRadius: '4px', marginRight: '10px' }} title="Download Media" disabled={loading}><FiDownload /></button>
+     <button 
+  className="tool-btn" 
+  style={{ background: 'transparent', border: '1px solid var(--accent-2)', color: 'var(--accent-2)', width: '50px', borderRadius: '4px', marginRight: '10px' }} 
+  title="Download Media (Paste link di kolom chat)" 
+  disabled={loading}
+  onClick={handleDownload} // <--- Beri aksi onClick di sini
+>
+  <FiDownload />
+</button>
 
         {loading ? (
           <button onClick={stopGenerating} className="stop-btn" title="Hentikan">

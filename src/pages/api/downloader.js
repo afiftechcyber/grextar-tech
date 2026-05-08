@@ -1,12 +1,5 @@
 // src/pages/api/downloader.js
-import { Innertube } from 'youtubei.js'
 
-// Fungsi Helper untuk mengekstrak ID Video YouTube dari berbagai format URL
-function extractYouTubeID(url) {
-  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
-  const match = url.match(regex)
-  return match ? match[1] : null
-}
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method tidak diizinkan' })

@@ -147,7 +147,7 @@ export function useChat() {
   }
 
   // Modifikasi agar bisa menerima teks langsung (untuk Live Voice)
-  async function sendMessage(textOverride = null) {
+ async function sendMessage(textOverride = null) {
     const messageToSend = textOverride || input
     if (!messageToSend.trim() || loading) return
 
@@ -155,13 +155,14 @@ export function useChat() {
     setLoading(true)
     addLog('REQUEST', `Mengirim pesan ke model: ${currentRole}`)
 
-    // Update state menggunakan callback prev agar 100% akurat
-    let newMessagesForApi = []
-    setMessages((prev) => {
-      const userMessage = { role: 'user', content: messageToSend }
-      newMessagesForApi = [...prev, userMessage]
-      return [...newMessagesForApi, { role: 'assistant', content: '' }]
-    })
+    // 1. Buat pesan user baru
+    const userMessage = { role: 'user', content: messageToSend }
+    
+    // 2. Gabungkan dengan history pesan yang ada di state saat ini UNTUK API
+    const newMessagesForApi = [...messages, userMessage]
+
+    // 3. Update state UI (tambahkan pesan user + placeholder untuk AI)
+    setMessages((prev) => [...prev, userMessage, { role: 'assistant', content: '' }])
 
     abortControllerRef.current = new AbortController()
     let fullAssistantMessage = ''
@@ -174,7 +175,7 @@ export function useChat() {
         body: JSON.stringify({
           role: currentRole,
           model: 'nemotron_omni', 
-          messages: newMessagesForApi, // Kirim dari variabel baru
+          messages: newMessagesForApi, // Variabel ini sekarang sudah terisi
         }),
       })
 

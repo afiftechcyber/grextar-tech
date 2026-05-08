@@ -32,7 +32,7 @@ export default async function handler(req) {
   try {
     const body = await req.json()
     const { messages = [], role = 'tsundere', model = 'gpt_oss' } = body
-
+console.log({messages, role, model})
     const selectedModel = modelMap[model] || modelMap.gpt_oss
     const systemPrompt = systemPrompts[role] || systemPrompts.tsundere
 
@@ -53,9 +53,9 @@ export default async function handler(req) {
           { role: 'system', content: systemPrompt },
           ...validMessages,
         ],
-        max_tokens: 2048,
+        max_tokens: 1024,
         temperature: role === 'coding' ? 0.2 : 0.85,
-        stream: true, // ✔️ Kunci untuk streaming
+        stream: true, 
       }),
     })
 

@@ -1,5 +1,5 @@
 // src/components/layout/Sidebar.jsx
-import { FiX, FiTerminal } from 'react-icons/fi'
+import { FiX, FiTerminal, FiMessageCircle, FiRadio } from 'react-icons/fi'
 import { roleData } from '../roleData'
 
 export default function Sidebar({ isOpen, setIsOpen, currentRole, setCurrentRole, showLogs, setShowLogs }) {
@@ -30,6 +30,31 @@ export default function Sidebar({ isOpen, setIsOpen, currentRole, setCurrentRole
             {role.name}
           </button>
         ))}
+      </div>
+
+      {/* --- BAGIAN KOMUNITAS BARU --- */}
+      <div className="sidebar-section" style={{ marginTop: '20px' }}>
+        <p className="section-title">KOMUNITAS</p>
+        
+        {/* Link Grup WhatsApp */}
+        <a 
+          href="https://chat.whatsapp.com/HFVQKIZSHqUKUTJF06qIf0?mlu=0&s=cl&p=a" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="community-link"
+        >
+          <FiMessageCircle /> Grup WhatsApp
+        </a>
+
+        {/* Link Saluran/Channel WhatsApp */}
+        <a 
+          href="https://whatsapp.com/channel/0029VbCY0C60gcfJVjJbzq1M" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="community-link"
+        >
+          <FiRadio /> Saluran WhatsApp
+        </a>
       </div>
 
       <div className="sidebar-footer">

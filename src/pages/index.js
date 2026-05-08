@@ -13,10 +13,13 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
 
-const { 
-  messages, input, setInput, loading, currentRole, setCurrentRole, 
-  sendMessage, stopGenerating, clearChat, logs, addLog, handleDownload // <--- Tambahkan handleDownload
-} = useChat()
+  const { 
+    messages, input, setInput, loading, currentRole, setCurrentRole, 
+    sendMessage, stopGenerating, clearChat, logs, addLog, handleDownload,
+    toggleRecording, isRecording,
+    toggleLiveMode, isLiveMode
+    
+  } = useChat()
 
   function launchApp() {
     setIntro(false)
@@ -55,7 +58,11 @@ const {
           sendMessage={sendMessage} 
           stopGenerating={stopGenerating}
           handleDownload={handleDownload} 
-          loading={loading} 
+          loading={loading}
+          toggleRecording={toggleRecording} 
+          isRecording={isRecording}         
+          toggleLiveMode={toggleLiveMode} 
+          isLiveMode={isLiveMode}         
         />
       </main>
 

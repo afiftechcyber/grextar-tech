@@ -9,6 +9,12 @@ export function useChat() {
   const [logs, setLogs] = useState([])
   const [isClient, setIsClient] = useState(false)
   
+  // -- STATE UNTUK MANUAL MIC & LIVE VOICE --
+  const [isRecording, setIsRecording] = useState(false)
+  const [isLiveMode, setIsLiveMode] = useState(false)
+  const isLiveModeRef = useRef(false) // Referensi agar tidak terkena stale closure
+  
+  const recognitionRef = useRef(null)
   const abortControllerRef = useRef(null)
 
   // Load history dari LocalStorage
@@ -16,20 +22,109 @@ export function useChat() {
     setIsClient(true)
     const savedChat = localStorage.getItem('grextar_history')
     if (savedChat) {
-      try {
-        setMessages(JSON.parse(savedChat))
-      } catch (e) {
-        console.error('Gagal membaca history', e)
-      }
+      try { setMessages(JSON.parse(savedChat)) } catch (e) {}
     }
   }, [])
 
   // Simpan history ke LocalStorage
   useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('grextar_history', JSON.stringify(messages))
-    }
+    if (isClient) localStorage.setItem('grextar_history', JSON.stringify(messages))
   }, [messages, isClient])
+
+  // -- VOICE: Inisialisasi Speech Recognition 1x --
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = false
+      recognitionRef.current.interimResults = false
+      recognitionRef.current.lang = 'id-ID' 
+    }
+  }, [])
+
+  // -- VOICE: Update Event Listener Tiap Render (Menghindari stale state) --
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript
+        setInput(transcript)
+        setIsRecording(false)
+        addLog('VOICE', `Transkripsi: "${transcript}"`)
+        
+        // JIKA LIVE MODE AKTIF, LANGSUNG KIRIM OTOMATIS
+        if (isLiveModeRef.current) {
+          sendMessage(transcript) 
+        }
+      }
+
+      recognitionRef.current.onerror = (event) => {
+        setIsRecording(false)
+        addLog('ERROR', `Voice Error: ${event.error}`)
+        
+        // Jika diam terlalu lama di Live Mode, paksa mic nyala lagi
+        if (isLiveModeRef.current && event.error === 'no-speech') {
+          try { recognitionRef.current?.start() } catch(e) {}
+        } else if (isLiveModeRef.current && event.error !== 'aborted') {
+          toggleLiveMode() // Matikan live mode jika ada error serius
+        }
+      }
+    }
+  }) // Tanpa array dependency agar closure selalu membaca state terbaru
+
+  // -- VOICE: Fungsi Baca Teks (TTS) --
+  function speak(text) {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel() 
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'id-ID'
+      utterance.rate = 1.0
+
+      // KUNCI LIVE VOICE: Saat AI selesai bicara, nyalakan Mic lagi!
+      utterance.onend = () => {
+        if (isLiveModeRef.current) {
+          try {
+            recognitionRef.current?.start()
+            setIsRecording(true)
+            addLog('VOICE', 'Live Mode: Mendengarkan kembali...')
+          } catch (e) {}
+        }
+      }
+
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
+  // Tombol Manual Mic
+  function toggleRecording() {
+    if (isRecording) {
+      recognitionRef.current?.stop()
+      setIsRecording(false)
+    } else {
+      recognitionRef.current?.start()
+      setIsRecording(true)
+      addLog('VOICE', 'Mendengarkan...')
+    }
+  }
+
+  // Tombol Live Voice
+  function toggleLiveMode() {
+    const newMode = !isLiveModeRef.current
+    isLiveModeRef.current = newMode
+    setIsLiveMode(newMode)
+
+    if (newMode) {
+      addLog('SYSTEM', 'Live Voice Diaktifkan')
+      try { 
+        recognitionRef.current?.start() 
+        setIsRecording(true)
+      } catch(e) {}
+    } else {
+      addLog('SYSTEM', 'Live Voice Dimatikan')
+      try { recognitionRef.current?.stop() } catch(e) {}
+      window.speechSynthesis.cancel() // Hentikan AI bicara jika dimatikan
+      setIsRecording(false)
+    }
+  }
 
   function addLog(type, message) {
     const time = new Date().toLocaleTimeString('id-ID', { hour12: false })
@@ -51,20 +146,25 @@ export function useChat() {
     }
   }
 
-  async function sendMessage() {
-    if (!input.trim() || loading) return
+  // Modifikasi agar bisa menerima teks langsung (untuk Live Voice)
+  async function sendMessage(textOverride = null) {
+    const messageToSend = textOverride || input
+    if (!messageToSend.trim() || loading) return
 
-    const userMessage = { role: 'user', content: input }
-    const newMessages = [...messages, userMessage]
-
-    setMessages(newMessages)
     setInput('')
     setLoading(true)
-
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
     addLog('REQUEST', `Mengirim pesan ke model: ${currentRole}`)
 
+    // Update state menggunakan callback prev agar 100% akurat
+    let newMessagesForApi = []
+    setMessages((prev) => {
+      const userMessage = { role: 'user', content: messageToSend }
+      newMessagesForApi = [...prev, userMessage]
+      return [...newMessagesForApi, { role: 'assistant', content: '' }]
+    })
+
     abortControllerRef.current = new AbortController()
+    let fullAssistantMessage = ''
 
     try {
       const res = await fetch('/api/chat', {
@@ -73,12 +173,10 @@ export function useChat() {
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           role: currentRole,
-          model: 'gpt_oss',
-          messages: newMessages,
+          model: 'nemotron_omni', 
+          messages: newMessagesForApi, // Kirim dari variabel baru
         }),
       })
-
-      addLog('RESPONSE', `HTTP Status: ${res.status}`)
 
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`)
 
@@ -98,12 +196,11 @@ export function useChat() {
           if (line.trim().startsWith('data:') && !line.includes('[DONE]')) {
             const jsonStr = line.replace(/^data:\s*/, '').trim()
             if (!jsonStr) continue
-
             try {
               const chunkData = JSON.parse(jsonStr)
               const textChunk = chunkData.choices?.[0]?.delta?.content || ''
-
               if (textChunk) {
+                fullAssistantMessage += textChunk
                 setMessages((prev) => {
                   const updated = [...prev]
                   const last = updated.length - 1
@@ -115,81 +212,47 @@ export function useChat() {
           }
         }
       }
-      addLog('SUCCESS', 'Stream selesai diterima.')
+      addLog('SUCCESS', 'Stream selesai.')
+      
+      // AI membacakan pesan jika Live Mode atau Manual Voice
+      speak(fullAssistantMessage.replace(/[#*`]/g, ''))
+
     } catch (error) {
-      if (error.name === 'AbortError') {
-        addLog('INFO', 'Stream berhasil dibatalkan.')
-      } else {
+      if (error.name !== 'AbortError') {
         addLog('ERROR', error.message)
-        setMessages((prev) => {
-          const updated = [...prev]
-          updated[updated.length - 1].content += `\n\n*[Koneksi bermasalah: ${error.message}]*`
-          return updated
-        })
       }
     }
     setLoading(false)
   }
-// FUNGSI BARU UNTUK DOWNLOADER
+
+  // Fungsi Download Tetap Aman
   async function handleDownload() {
     if (!input.trim() || loading) return
-
-    // Cek apakah input mengandung "http" (berupa link)
-    if (!input.includes('http')) {
-      alert("Harap masukkan URL/Link yang valid!")
-      return
-    }
-
+    if (!input.includes('http')) return alert("Harap masukkan URL/Link yang valid!")
     const urlToDownload = input
-    
-    // Munculkan pesan user ke layar
     setMessages((prev) => [...prev, { role: 'user', content: `Tolong download video ini:\n${urlToDownload}` }])
     setInput('')
     setLoading(true)
-    addLog('REQUEST', `Mencoba mengekstrak media dari URL...`)
-
-    // Munculkan balon chat loading untuk asisten
-    setMessages((prev) => [...prev, { role: 'assistant', content: '⏳ *Sedang mengambil link tanpa watermark...*' }])
-
+    setMessages((prev) => [...prev, { role: 'assistant', content: '⏳ *Sedang mengambil link...*' }])
     try {
-      const res = await fetch('/api/downloader', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToDownload }),
-      })
-
+      const res = await fetch('/api/downloader', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urlToDownload }) })
       const data = await res.json()
-
-      // Ubah balon chat loading menjadi hasil akhir
       setMessages((prev) => {
         const updated = [...prev]
-        const last = updated.length - 1
-
         if (data.success) {
-          // Format menggunakan Markdown agar rapi
-          updated[last].content = `✅ **Berhasil menemukan video!**\n\n**Judul:** ${data.title}\n\n[🚀 KLIK DI SINI UNTUK DOWNLOAD/NONTON (No WM)](${data.downloadLink})`
-          addLog('SUCCESS', `Link ${data.platform} berhasil didapat.`)
+          updated[updated.length - 1].content = `✅ **Berhasil menemukan video!**\n\n**Judul:** ${data.title}\n\n[🚀 KLIK DI SINI UNTUK DOWNLOAD/NONTON (No WM)](${data.downloadLink})`
         } else {
-          updated[last].content = `❌ **Gagal:** ${data.error || 'Link tidak dapat diproses.'}`
-          addLog('ERROR', data.error || 'Gagal ekstrak link')
+          updated[updated.length - 1].content = `❌ **Gagal:** ${data.error}`
         }
         return updated
       })
-    } catch (error) {
-      setMessages((prev) => {
-        const updated = [...prev]
-        updated[updated.length - 1].content = `❌ **Error:** Terjadi kesalahan jaringan.`
-        return updated
-      })
-      addLog('ERROR', error.message)
-    }
-
+    } catch (error) {}
     setLoading(false)
   }
 
-  // JANGAN LUPA export fungsinya di bagian bawah (return)
   return {
     messages, input, setInput, loading, currentRole, setCurrentRole,
-    logs, addLog, clearChat, stopGenerating, sendMessage, handleDownload // <--- Tambahkan ini
+    logs, addLog, clearChat, stopGenerating, sendMessage, handleDownload,
+    toggleRecording, isRecording, toggleLiveMode, isLiveMode // Export fitur baru
   }
 }

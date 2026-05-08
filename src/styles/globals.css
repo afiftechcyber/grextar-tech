@@ -633,10 +633,62 @@ body {
     box-shadow: 0 0 20px var(--border-glow);
   }
 
+  
+  
+/* --- FIX FINAL UI KOMUNITAS (ANTI-BLUE & HIGH CONTRAST) --- */
+.sidebar-section .community-link {
+  /* Reset total gaya link bawaan */
+  color: var(--text-1) !important; /* Gunakan putih terang agar kontras */
+  text-decoration: none !important; /* Hapus garis bawah secara paksa */
+  
+  /* Buat tampilan seperti tombol Mode AI */
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 14px !important;
+  margin-bottom: 10px !important;
+  
+  background: var(--bg-card) !important; /* Memberi "wadah" agar tidak melayang */
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Mengatur ikon di dalam link komunitas */
+.sidebar-section .community-link svg {
+  color: var(--accent-2) !important; /* Warna biru neon agar menonjol */
+  font-size: 1.2rem !important;
+}
+
+/* Efek saat kursor menyentuh tombol */
+.sidebar-section .community-link:hover {
+  border-color: var(--accent-2) !important;
+  background: rgba(0, 212, 255, 0.05) !important;
+  color: var(--accent-2) !important;
+  box-shadow: 0 0 15px var(--border-glow) !important;
+  transform: translateY(-2px) !important; /* Efek angkat sedikit */
+}
+
+/* Khusus transisi warna untuk teks di dalam hover */
+.sidebar-section .community-link:hover svg {
+  color: #22c55e !important; /* Ikon jadi hijau saat hover */
+}
+
+
+
+
   .menu-btn {
     display: block;
   }
-
+.tool-btn.pulse { animation: mic-pulse 1.5s infinite; }
+@keyframes mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 212, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
+}
   .close-btn {
     display: block;
     background: none;

@@ -1,9 +1,9 @@
-// src/components/chat/ChatInput.jsx
-import { FiSend, FiSquare, FiMic, FiMicOff, FiDownload, FiPhoneCall, FiPhoneOff } from 'react-icons/fi'
+import { FiSend, FiSquare, FiMic, FiMicOff, FiDownload, FiPhoneCall, FiPhoneOff, FiVolume2, FiVolumeX } from 'react-icons/fi'
 
 export default function ChatInput({ 
   input, setInput, sendMessage, stopGenerating, handleDownload, 
-  loading, toggleRecording, isRecording, toggleLiveMode, isLiveMode 
+  loading, toggleRecording, isRecording, toggleLiveMode, isLiveMode,
+  isAutoSpeak, setIsAutoSpeak // Terima props dari index.js
 }) {
   
   const handleKeyDown = (e) => {
@@ -35,7 +35,18 @@ export default function ChatInput({
           {isLiveMode ? <FiPhoneOff /> : <FiPhoneCall />}
         </button>
 
-        {/* Tombol 2: Dikte Manual */}
+        {/* Tombol 2: Toggle Suara AI (Default Nonaktif) */}
+        <button 
+          className="tool-btn" 
+          style={{ background: isAutoSpeak ? 'var(--accent-2)' : 'transparent', border: '1px solid var(--accent-2)', color: isAutoSpeak ? '#000' : 'var(--accent-2)', width: '50px', borderRadius: '4px', marginRight: '10px' }} 
+          title={isAutoSpeak ? "Matikan Suara AI" : "Nyalakan Suara AI"} 
+          disabled={loading || isLiveMode}
+          onClick={() => setIsAutoSpeak(!isAutoSpeak)} 
+        >
+          {isAutoSpeak ? <FiVolume2 /> : <FiVolumeX />}
+        </button>
+
+        {/* Tombol 3: Dikte Manual */}
         <button 
           className="tool-btn" 
           style={{ background: isRecording && !isLiveMode ? 'var(--accent-2)' : 'transparent', border: '1px solid var(--accent-2)', color: isRecording && !isLiveMode ? '#000' : 'var(--accent-2)', width: '50px', borderRadius: '4px', marginRight: '10px' }} 
@@ -46,7 +57,7 @@ export default function ChatInput({
           {isRecording && !isLiveMode ? <FiMicOff /> : <FiMic />}
         </button>
 
-        {/* Tombol 3: Download */}
+        {/* Tombol 4: Download */}
         <button 
           className="tool-btn" 
           style={{ background: 'transparent', border: '1px solid var(--accent-2)', color: 'var(--accent-2)', width: '50px', borderRadius: '4px', marginRight: '10px' }} 

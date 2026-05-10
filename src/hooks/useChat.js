@@ -1,4 +1,3 @@
-// src/hooks/useChat.js
 import { useState, useEffect, useRef } from 'react'
 
 export function useChat() {
@@ -8,11 +7,15 @@ export function useChat() {
   const [currentRole, setCurrentRole] = useState('grextar')
   const [logs, setLogs] = useState([])
   const [isClient, setIsClient] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false) // <-- FIXED: State untuk race condition localstorage
   
   // -- STATE UNTUK MANUAL MIC & LIVE VOICE --
   const [isRecording, setIsRecording] = useState(false)
   const [isLiveMode, setIsLiveMode] = useState(false)
-  const isLiveModeRef = useRef(false) // Referensi agar tidak terkena stale closure
+  const isLiveModeRef = useRef(false) 
+  
+  // -- STATE UNTUK TOGGLE SUARA MANUAL (Default: Mati) --
+  const [isAutoSpeak, setIsAutoSpeak] = useState(false) 
   
   const recognitionRef = useRef(null)
   const abortControllerRef = useRef(null)
@@ -24,12 +27,15 @@ export function useChat() {
     if (savedChat) {
       try { setMessages(JSON.parse(savedChat)) } catch (e) {}
     }
+    setIsLoaded(true) // <-- FIXED: Tandai jika sudah selesai load
   }, [])
 
   // Simpan history ke LocalStorage
   useEffect(() => {
-    if (isClient) localStorage.setItem('grextar_history', JSON.stringify(messages))
-  }, [messages, isClient])
+    if (isClient && isLoaded) { // <-- FIXED: Hanya simpan jika sudah di-load
+      localStorage.setItem('grextar_history', JSON.stringify(messages))
+    }
+  }, [messages, isClient, isLoaded])
 
   // -- VOICE: Inisialisasi Speech Recognition 1x --
   useEffect(() => {
@@ -42,7 +48,7 @@ export function useChat() {
     }
   }, [])
 
-  // -- VOICE: Update Event Listener Tiap Render (Menghindari stale state) --
+  // -- VOICE: Update Event Listener Tiap Render --
   useEffect(() => {
     if (recognitionRef.current) {
       recognitionRef.current.onresult = (event) => {
@@ -69,7 +75,9 @@ export function useChat() {
         }
       }
     }
-  }) // Tanpa array dependency agar closure selalu membaca state terbaru
+  }) // Karena kita butuh closure sendMessage yang terbaru tanpa useCallback, 
+     // react akan memicu warning di baris ini, tapi fungsinya tetap berjalan normal 
+     // untuk mencegah stale closure di useEffect Speech Recognition.
 
   // -- VOICE: Fungsi Baca Teks (TTS) --
   function speak(text) {
@@ -146,7 +154,6 @@ export function useChat() {
     }
   }
 
-  // Modifikasi agar bisa menerima teks langsung (untuk Live Voice)
  async function sendMessage(textOverride = null) {
     const messageToSend = textOverride || input
     if (!messageToSend.trim() || loading) return
@@ -155,13 +162,9 @@ export function useChat() {
     setLoading(true)
     addLog('REQUEST', `Mengirim pesan ke model: ${currentRole}`)
 
-    // 1. Buat pesan user baru
     const userMessage = { role: 'user', content: messageToSend }
-    
-    // 2. Gabungkan dengan history pesan yang ada di state saat ini UNTUK API
     const newMessagesForApi = [...messages, userMessage]
 
-    // 3. Update state UI (tambahkan pesan user + placeholder untuk AI)
     setMessages((prev) => [...prev, userMessage, { role: 'assistant', content: '' }])
 
     abortControllerRef.current = new AbortController()
@@ -175,7 +178,7 @@ export function useChat() {
         body: JSON.stringify({
           role: currentRole,
           model: 'nemotron_omni', 
-          messages: newMessagesForApi, // Variabel ini sekarang sudah terisi
+          messages: newMessagesForApi, 
         }),
       })
 
@@ -197,6 +200,7 @@ export function useChat() {
           if (line.trim().startsWith('data:') && !line.includes('[DONE]')) {
             const jsonStr = line.replace(/^data:\s*/, '').trim()
             if (!jsonStr) continue
+         
             try {
               const chunkData = JSON.parse(jsonStr)
               const textChunk = chunkData.choices?.[0]?.delta?.content || ''
@@ -209,14 +213,18 @@ export function useChat() {
                   return updated
                 })
               }
-            } catch (err) {}
+            } catch (err) {
+              console.warn("Stream Parsing Error:", err); // <-- FIXED: Tangkap Error Stream
+            }
           }
         }
       }
       addLog('SUCCESS', 'Stream selesai.')
       
-      // AI membacakan pesan jika Live Mode atau Manual Voice
-      speak(fullAssistantMessage.replace(/[#*`]/g, ''))
+      // LOGIKA BARU: AI hanya bersuara jika tombol speaker nyala, ATAU sedang di Live Mode
+      if (isAutoSpeak || isLiveModeRef.current) {
+        speak(fullAssistantMessage.replace(/[#*`]/g, ''))
+      }
 
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -226,7 +234,7 @@ export function useChat() {
     setLoading(false)
   }
 
-  // Fungsi Download Tetap Aman
+  // Fungsi Download 
   async function handleDownload() {
     if (!input.trim() || loading) return
     if (!input.includes('http')) return alert("Harap masukkan URL/Link yang valid!")
@@ -251,9 +259,11 @@ export function useChat() {
     setLoading(false)
   }
 
+  // Jangan lupa export state/fungsinya
   return {
     messages, input, setInput, loading, currentRole, setCurrentRole,
     logs, addLog, clearChat, stopGenerating, sendMessage, handleDownload,
-    toggleRecording, isRecording, toggleLiveMode, isLiveMode // Export fitur baru
+    toggleRecording, isRecording, toggleLiveMode, isLiveMode,
+    isAutoSpeak, setIsAutoSpeak 
   }
 }

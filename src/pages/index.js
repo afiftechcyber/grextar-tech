@@ -1,4 +1,3 @@
-// src/pages/index.js
 import { useState } from 'react'
 import IntroScreen from '../components/IntroScreen'
 import Sidebar from '../components/layout/Sidebar'
@@ -17,8 +16,8 @@ export default function Home() {
     messages, input, setInput, loading, currentRole, setCurrentRole, 
     sendMessage, stopGenerating, clearChat, logs, addLog, handleDownload,
     toggleRecording, isRecording,
-    toggleLiveMode, isLiveMode
-    
+    toggleLiveMode, isLiveMode,
+    isAutoSpeak, setIsAutoSpeak // State baru untuk toggle suara
   } = useChat()
 
   function launchApp() {
@@ -62,7 +61,9 @@ export default function Home() {
           toggleRecording={toggleRecording} 
           isRecording={isRecording}         
           toggleLiveMode={toggleLiveMode} 
-          isLiveMode={isLiveMode}         
+          isLiveMode={isLiveMode}  
+          isAutoSpeak={isAutoSpeak}         // Kirim props ke komponen
+          setIsAutoSpeak={setIsAutoSpeak}   // Kirim props ke komponen
         />
       </main>
 

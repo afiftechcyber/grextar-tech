@@ -15,7 +15,7 @@ const systemPrompts = {
 
 const modelMap = {
   gpt_oss: 'openai/gpt-oss-120b:free',
-  hunyuan: 'tencent/hy3-preview:free',
+  nemotron_omni: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'
 }
 
 export default async function handler(req) {
@@ -32,7 +32,8 @@ export default async function handler(req) {
   try {
     const body = await req.json()
     const { messages = [], role = 'tsundere', model = 'gpt_oss' } = body
-console.log({messages, role, model})
+    console.log({messages, role, model})
+    
     const selectedModel = modelMap[model] || modelMap.gpt_oss
     const systemPrompt = systemPrompts[role] || systemPrompts.tsundere
 
